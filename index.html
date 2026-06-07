@@ -860,7 +860,6 @@ function openModal(id, sec, num) {
   document.getElementById('alcTog').classList.remove('sel');
   pkgPrice = TABLE_PRICE[id] || 40;
   document.getElementById('mPrice').innerHTML = `$${pkgPrice}<span>/person</span>`;
-  const isLounge = id === '1-lounge';
   document.getElementById('gCountHint').textContent = isLounge ? '(min 4, max 8)' : '(max 10)';
   if (isLounge) { guestCount = 4; }
   updateGuestUI();
