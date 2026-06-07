@@ -327,6 +327,16 @@ body { background:var(--dark); color:var(--text); font-family:'Segoe UI',system-
 .pkg-opt-desc { font-size:9px; color:var(--muted); }
 .pkg-opt-price { font-size:15px; font-weight:900; color:var(--gold); }
 
+/* Guest count buttons */
+.qty-btn {
+  width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(201,168,76,.35);
+  background:rgba(201,168,76,.08);color:var(--gold);font-size:20px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;
+  transition:background .15s;
+}
+.qty-btn:hover { background:rgba(201,168,76,.18); }
+.qty-btn:active { background:rgba(201,168,76,.3); }
+
 /* Alcohol toggle */
 .alc-tog {
   display:flex; align-items:center; gap:10px; background:var(--d4);
@@ -584,12 +594,27 @@ const WA_NUM           = '96176917171';
       <label class="fl">Phone Number</label>
       <input class="fi" id="gPhone" type="tel" placeholder="+961 XX XXX XXX" autocomplete="tel">
     </div>
+    <div class="fg">
+      <label class="fl">Number of Guests</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button type="button" class="qty-btn" onclick="changeGuests(-1)">−</button>
+        <span id="gCountDisplay" style="font-size:22px;font-weight:900;color:#fff;min-width:28px;text-align:center">1</span>
+        <button type="button" class="qty-btn" onclick="changeGuests(1)">+</button>
+        <span id="gCountHint" style="font-size:11px;color:var(--muted);margin-left:4px"></span>
+      </div>
+    </div>
 
     <!-- Alcohol toggle inline -->
-    <div class="alc-tog" id="alcTog" onclick="togAlc()" style="margin-bottom:18px">
+    <div class="alc-tog" id="alcTog" onclick="togAlc()" style="margin-bottom:12px">
       <div class="chk-box"><span class="chk-in">✓</span></div>
-      <div class="alc-info"><div class="alc-label">🍺 Add alcoholic drinks</div><div class="alc-sub">Beer, wine & spirits</div></div>
+      <div class="alc-info"><div class="alc-label">🍺 Add alcoholic drinks</div><div class="alc-sub">Beer, wine & spirits · +$5/person</div></div>
       <div class="alc-price">+$5<span style="font-size:8px;color:var(--muted)">/person</span></div>
+    </div>
+
+    <!-- Total summary -->
+    <div id="totalBox" style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:11px;color:var(--muted);line-height:1.6" id="totalBreakdown">1 guest × $40</div>
+      <div style="font-size:26px;font-weight:900;color:var(--gold)" id="totalAmount">$40</div>
     </div>
 
     <button class="btn-resv" id="btnResv" onclick="doReserve()">
@@ -727,6 +752,7 @@ let selId = null;
 let adminMode = false;
 let alcOn = false;
 let pkgPrice = 40;
+let guestCount = 1;
 let pendingRes = null;
 
 // ── INIT
@@ -830,9 +856,14 @@ function openModal(id, sec, num) {
   document.getElementById('gName').value  = '';
   document.getElementById('gPhone').value = '';
   alcOn = false;
+  guestCount = 1;
   document.getElementById('alcTog').classList.remove('sel');
   pkgPrice = TABLE_PRICE[id] || 40;
   document.getElementById('mPrice').innerHTML = `$${pkgPrice}<span>/person</span>`;
+  const isLounge = id === '1-lounge';
+  document.getElementById('gCountHint').textContent = isLounge ? '(min 4, max 8)' : '(max 10)';
+  if (isLounge) { guestCount = 4; }
+  updateGuestUI();
   document.getElementById('overlay').classList.add('open');
   setTimeout(() => document.getElementById('gName').focus(), 180);
 }
@@ -847,11 +878,30 @@ function selPkg(el) {
   calcTotal();
 }
 
+function changeGuests(delta) {
+  const isLounge = selId === '1-lounge';
+  const min = isLounge ? 4 : 1;
+  const max = isLounge ? 8 : 10;
+  guestCount = Math.min(max, Math.max(min, guestCount + delta));
+  updateGuestUI();
+}
+
+function updateGuestUI() {
+  document.getElementById('gCountDisplay').textContent = guestCount;
+  const perPerson = pkgPrice + (alcOn ? 5 : 0);
+  const total = perPerson * guestCount;
+  const alcText = alcOn ? ` + $5 alcohol` : '';
+  document.getElementById('totalBreakdown').innerHTML =
+    `${guestCount} guest${guestCount>1?'s':''} × $${pkgPrice}${alcText}<br><span style="font-size:10px;color:rgba(240,232,216,.35)">per person</span>`;
+  document.getElementById('totalAmount').textContent = `$${total}`;
+}
+
 function togAlc() {
   alcOn = !alcOn;
   document.getElementById('alcTog').classList.toggle('sel', alcOn);
   const t = pkgPrice + (alcOn ? 5 : 0);
   document.getElementById('mPrice').innerHTML = `$${t}<span>/person</span>`;
+  updateGuestUI();
 }
 
 async function doReserve() {
@@ -880,10 +930,12 @@ async function doReserve() {
   btn.disabled = false; btn.textContent = 'Reserve & Message on WhatsApp →';
 
   const row = LAYOUT.find(r => r[0] === selId);
-  const tLabel = row ? `Table ${row[1]}-${row[2]}` : 'your table';
+  const tLabel = selId === '1-lounge' ? '🌿 Private Lounge' : (row ? `Table ${row[1]}-${row[2]}` : 'your table');
   const secLabel = SEC_LABEL[row?.[1]] || '';
   const pkgName = pkgPrice===50 ? 'Exclusive Front Piste ($50/person)' : pkgPrice===45 ? 'Closer to the Piste ($45/person)' : 'Dinner + Soft Drinks ($40/person)';
-  const alcLine = alcOn ? ' + Alcoholic drinks (+$5/person)' : '';
+  const alcLine = alcOn ? '\n🍺 Alcohol: Yes (+$5/person)' : '';
+  const perPerson = pkgPrice + (alcOn ? 5 : 0);
+  const total = perPerson * guestCount;
 
   const msg = encodeURIComponent(
 `Hi! I just reserved ${tLabel} at Venus Resort — June 13 🎤
@@ -892,6 +944,8 @@ async function doReserve() {
 📞 Phone: ${phone}
 🪑 Table: ${tLabel} — ${secLabel}
 🍽 Package: ${pkgName}${alcLine}
+👥 Guests: ${guestCount}
+💰 Total: $${total} ($${perPerson}/person × ${guestCount})
 
 💳 Sending payment now via Whish to ${WHISH_NUM}
 
