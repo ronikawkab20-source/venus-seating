@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Venus Admin — June 13</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  --gold:#c9a84c; --dark:#080808; --d2:#0f0f0f; --d3:#161616; --d4:#202020;
+  --text:#f0e8d8; --muted:#666; --green:#2ecc71; --red:#e74c3c; --orange:#f39c12;
+}
+body { background:var(--dark); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
+
+/* LOGIN */
+#loginScreen {
+  display:flex; align-items:center; justify-content:center; min-height:100vh;
+  background:radial-gradient(ellipse 60% 50% at 50% 0%, rgba(201,168,76,.1) 0%, transparent 70%);
+}
+.login-box {
+  background:var(--d2); border:1px solid rgba(255,255,255,.07); border-radius:16px;
+  padding:36px 32px; width:100%; max-width:360px; text-align:center;
+}
+.login-logo { font-size:11px; letter-spacing:.25em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+.login-title { font-size:22px; font-weight:900; color:#fff; margin-bottom:4px; }
+.login-sub { font-size:11px; color:var(--muted); margin-bottom:28px; }
+.fi { width:100%; background:var(--d4); border:1.5px solid rgba(255,255,255,.08); border-radius:9px; padding:13px 14px; color:var(--text); font-size:15px; font-family:inherit; outline:none; text-align:center; letter-spacing:.3em; margin-bottom:14px; }
+.fi:focus { border-color:rgba(201,168,76,.4); }
+.btn-login { width:100%; background:var(--gold); border:none; border-radius:9px; color:#000; font-size:13px; font-weight:800; padding:14px; cursor:pointer; font-family:inherit; letter-spacing:.05em; }
+.btn-login:hover { background:#e8c96a; }
+.login-err { font-size:11px; color:var(--red); margin-top:10px; min-height:16px; }
+
+/* DASHBOARD */
+#dashboard { display:none; }
+.top-bar {
+  background:var(--d2); border-bottom:1px solid rgba(255,255,255,.05);
+  padding:14px 20px; display:flex; align-items:center; justify-content:space-between;
+}
+.top-bar-title { font-size:13px; font-weight:800; color:var(--gold); letter-spacing:.06em; text-transform:uppercase; }
+.top-bar-right { display:flex; align-items:center; gap:12px; }
+.live-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.live-label { font-size:10px; color:var(--muted); }
+.btn-logout { background:none; border:1px solid rgba(255,255,255,.1); border-radius:6px; color:var(--muted); padding:5px 10px; font-size:9px; letter-spacing:.1em; text-transform:uppercase; cursor:pointer; font-family:inherit; }
+.btn-logout:hover { color:#fff; }
+
+/* STATS */
+.stats-row { display:flex; gap:12px; padding:16px 20px; flex-wrap:wrap; }
+.stat-card { flex:1; min-width:100px; background:var(--d3); border:1px solid rgba(255,255,255,.06); border-radius:10px; padding:14px; text-align:center; }
+.stat-n { font-size:28px; font-weight:900; line-height:1; }
+.stat-l { font-size:9px; letter-spacing:.15em; text-transform:uppercase; color:var(--muted); margin-top:4px; }
+.stat-pending .stat-n { color:var(--orange); }
+.stat-confirmed .stat-n { color:var(--red); }
+.stat-avail .stat-n { color:var(--green); }
+
+/* TABS */
+.tabs { display:flex; gap:0; padding:0 20px; border-bottom:1px solid rgba(255,255,255,.05); }
+.tab { padding:10px 18px; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; transition:all .15s; }
+.tab.active { color:var(--gold); border-bottom-color:var(--gold); }
+
+/* LISTS */
+.list-wrap { padding:16px 20px; max-width:700px; }
+.pend-card {
+  background:var(--d3); border:1px solid rgba(243,156,18,.2);
+  border-radius:12px; padding:16px; margin-bottom:12px;
+}
+.conf-card {
+  background:var(--d3); border:1px solid rgba(231,76,60,.15);
+  border-radius:12px; padding:16px; margin-bottom:12px;
+}
+.card-row { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+.card-table { font-size:15px; font-weight:900; color:#fff; }
+.card-total { font-size:18px; font-weight:900; color:var(--gold); }
+.card-name { font-size:13px; color:var(--gold); font-weight:700; margin-bottom:6px; }
+.card-details { font-size:11px; color:rgba(240,232,216,.5); line-height:1.8; margin-bottom:12px; }
+.card-actions { display:flex; gap:8px; }
+.btn-confirm { flex:1; background:var(--green); border:none; border-radius:8px; color:#000; font-size:11px; font-weight:800; padding:10px; cursor:pointer; font-family:inherit; }
+.btn-confirm:hover { background:#27ae60; }
+.btn-reject { flex:1; background:rgba(231,76,60,.12); border:1px solid rgba(231,76,60,.25); border-radius:8px; color:var(--red); font-size:11px; font-weight:700; padding:10px; cursor:pointer; font-family:inherit; }
+.btn-reject:hover { background:rgba(231,76,60,.2); }
+.btn-free { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:8px; color:var(--muted); font-size:11px; padding:8px 14px; cursor:pointer; font-family:inherit; }
+.btn-free:hover { color:#fff; }
+.empty { text-align:center; padding:40px 0; font-size:12px; color:var(--muted); }
+.badge-pend { display:inline-block; background:var(--orange); color:#000; font-size:9px; font-weight:900; border-radius:10px; padding:1px 7px; margin-left:6px; vertical-align:middle; }
+
+/* TOAST */
+.toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--d3); border:1px solid rgba(255,255,255,.1); border-radius:8px; padding:10px 18px; font-size:12px; opacity:0; transition:all .25s; pointer-events:none; white-space:nowrap; z-index:999; }
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+.toast.s { border-color:rgba(46,204,113,.3); color:var(--green); }
+.toast.e { border-color:rgba(231,76,60,.3); color:var(--red); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">Venus Resort · June 13</div>
+    <div class="login-title">Admin</div>
+    <div class="login-sub">Enter your PIN to continue</div>
+    <input class="fi" id="pinInput" type="password" maxlength="6" placeholder="· · · ·" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn-login" onclick="doLogin()">Enter</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="top-bar">
+    <div class="top-bar-title">Venus Admin — June 13</div>
+    <div class="top-bar-right">
+      <div class="live-dot"></div>
+      <div class="live-label">Live</div>
+      <button class="btn-logout" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card stat-pending"><div class="stat-n" id="sPending">0</div><div class="stat-l">Pending</div></div>
+    <div class="stat-card stat-confirmed"><div class="stat-n" id="sConfirmed">0</div><div class="stat-l">Confirmed</div></div>
+    <div class="stat-card stat-avail"><div class="stat-n" id="sAvail">0</div><div class="stat-l">Available</div></div>
+    <div class="stat-card"><div class="stat-n" id="sTotal" style="color:#fff">0</div><div class="stat-l">Total Tables</div></div>
+    <div class="stat-card"><div class="stat-n" id="sRevenue" style="color:var(--gold)">$0</div><div class="stat-l">Est. Revenue</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="tab-pending" onclick="showTab('pending')">Pending <span class="badge-pend" id="tabBadge">0</span></div>
+    <div class="tab" id="tab-confirmed" onclick="showTab('confirmed')">Confirmed</div>
+  </div>
+
+  <div class="list-wrap" id="listWrap"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const SUPABASE_URL     = 'https://kjxwrukjhatuwztmyfwu.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_etCZ68cMpMG4z86PSD35MA_tu0lk09v';
+const ADMIN_PIN        = '1234';
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const SEC_LABEL = { 1:'Section 1', 2:'Section 2 — Right Side', 3:'Section 3 — Piste View', 4:'Section 4 — Bottom Left', 5:'Section 5 — Left Side' };
+
+let seats = {};
+let currentTab = 'pending';
+
+// ── AUTH
+function doLogin() {
+  const val = document.getElementById('pinInput').value;
+  if (val === ADMIN_PIN) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    loadData();
+  } else {
+    document.getElementById('loginErr').textContent = 'Wrong PIN. Try again.';
+    document.getElementById('pinInput').value = '';
+    setTimeout(() => document.getElementById('loginErr').textContent = '', 2500);
+  }
+}
+function doLogout() {
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('pinInput').value = '';
+  seats = {};
+}
+document.getElementById('pinInput').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+// ── DATA
+async function loadData() {
+  const { data, error } = await db.from('event_seats').select('*');
+  if (error) { toast('Failed to load data','e'); return; }
+  data.forEach(r => seats[r.id] = r);
+  renderAll();
+  subscribeRealtime();
+}
+
+function subscribeRealtime() {
+  db.channel('admin-seats').on('postgres_changes', { event:'UPDATE', schema:'public', table:'event_seats' }, p => {
+    seats[p.new.id] = p.new;
+    renderAll();
+  }).subscribe();
+}
+
+function renderAll() {
+  updateStats();
+  renderList();
+}
+
+function updateStats() {
+  const all = Object.values(seats);
+  const total     = all.length;
+  const pending   = all.filter(s => s.status === 'pending').length;
+  const confirmed = all.filter(s => s.status === 'reserved').length;
+  const avail     = all.filter(s => s.status === 'available').length;
+  const revenue   = all.filter(s => s.status === 'reserved').reduce((sum, s) => sum + (s.total_usd||0), 0);
+  document.getElementById('sPending').textContent   = pending;
+  document.getElementById('sConfirmed').textContent = confirmed;
+  document.getElementById('sAvail').textContent     = avail;
+  document.getElementById('sTotal').textContent     = total;
+  document.getElementById('sRevenue').textContent   = `$${revenue}`;
+  document.getElementById('tabBadge').textContent   = pending;
+  document.getElementById('tabBadge').style.display = pending ? 'inline-block' : 'none';
+}
+
+function showTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  renderList();
+}
+
+function renderList() {
+  const wrap = document.getElementById('listWrap');
+  const filtered = Object.entries(seats).filter(([,s]) => {
+    if (currentTab === 'pending') return s.status === 'pending';
+    if (currentTab === 'confirmed') return s.status === 'reserved';
+    return false;
+  });
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = `<div class="empty">${currentTab === 'pending' ? 'No pending requests' : 'No confirmed reservations'}</div>`;
+    return;
+  }
+
+  wrap.innerHTML = '';
+  filtered.forEach(([id, s]) => {
+    const tLabel = id === '1-lounge' ? 'Private Lounge' : `Table ${id}`;
+    const sec = parseInt(id.split('-')[0]);
+    const secLabel = SEC_LABEL[sec] || '';
+    const card = document.createElement('div');
+    card.className = currentTab === 'pending' ? 'pend-card' : 'conf-card';
+    const time = s.reserved_at ? new Date(s.reserved_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '';
+    card.innerHTML = `
+      <div class="card-row">
+        <div>
+          <div class="card-table">${tLabel}</div>
+          <div style="font-size:10px;color:var(--muted)">${secLabel}${time ? ' · ' + time : ''}</div>
+        </div>
+        <div class="card-total">$${s.total_usd || '—'}</div>
+      </div>
+      <div class="card-name">${s.guest_name || '—'}</div>
+      <div class="card-details">
+        Phone: <strong style="color:#fff">${s.guest_phone || '—'}</strong><br>
+        Guests: ${s.guest_count || 1} &nbsp;·&nbsp; Dinner: ${s.dinner ? 'Yes' : 'No'} &nbsp;·&nbsp; Alcohol: ${s.alcohol ? 'Yes' : 'No'}
+      </div>
+      <div class="card-actions">
+        ${currentTab === 'pending' ? `
+          <button class="btn-confirm" onclick="confirmTable('${id}')">Payment Received — Confirm</button>
+          <button class="btn-reject" onclick="rejectTable('${id}')">Reject</button>
+        ` : `
+          <button class="btn-free" onclick="freeTable('${id}')">Release Table</button>
+        `}
+      </div>
+    `;
+    wrap.appendChild(card);
+  });
+}
+
+async function confirmTable(id) {
+  await db.from('event_seats').update({ status:'reserved' }).eq('id', id);
+  toast('Confirmed ✓', 's');
+}
+async function rejectTable(id) {
+  await db.from('event_seats').update({ status:'available', guest_name:null, guest_phone:null, guest_count:null, dinner:null, alcohol:null, total_usd:null, reserved_at:null }).eq('id', id);
+  toast('Rejected — table freed', '');
+}
+async function freeTable(id) {
+  if (!confirm('Release this table back to available?')) return;
+  await db.from('event_seats').update({ status:'available', guest_name:null, guest_phone:null, guest_count:null, dinner:null, alcohol:null, total_usd:null, reserved_at:null }).eq('id', id);
+  toast('Table released', '');
+}
+
+function toast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
