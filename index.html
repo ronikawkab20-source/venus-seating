@@ -11,7 +11,7 @@
   --gold: #c9a84c; --gold-l: #e8c96a;
   --dark: #080808; --d2: #0f0f0f; --d3: #161616; --d4: #202020; --d5: #282828;
   --text: #f0e8d8; --muted: #666;
-  --green: #2ecc71; --red: #e74c3c;
+  --green: #2ecc71; --red: #e74c3c; --orange: #f39c12;
 }
 body { background:var(--dark); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
 
@@ -231,6 +231,9 @@ body { background:var(--dark); color:var(--text); font-family:'Segoe UI',system-
 .tbl.av:hover { transform:translate(-50%,-50%) scale(1.12); z-index:10; box-shadow:0 0 12px rgba(255,255,255,.12); }
 .tbl.rs { background:rgba(50,15,15,.5); border-color:rgba(231,76,60,.2); cursor:default; }
 .tbl.rs::before { background:var(--red) !important; }
+.tbl.pn { background:rgba(50,35,5,.6); border-color:rgba(243,156,18,.35); cursor:default; }
+.tbl.pn::before { background:var(--orange) !important; animation: pulse-orange 1.2s infinite; }
+@keyframes pulse-orange { 0%,100%{opacity:1} 50%{opacity:.4} }
 .tbl-num { font-size:13px; font-weight:900; color:#fff; line-height:1; }
 .tbl-price { font-size:6px; font-weight:700; margin-top:2px; }
 .tbl.p50.av .tbl-price { color:rgba(201,168,76,.8); }
@@ -415,9 +418,20 @@ body { background:var(--dark); color:var(--text); font-family:'Segoe UI',system-
 .toast.e { border-color:rgba(231,76,60,.3); color:var(--red); }
 
 /* ADMIN */
-.admin-bar { position:fixed; bottom:14px; right:14px; z-index:50; }
+.admin-bar { position:fixed; bottom:14px; right:14px; z-index:50; display:flex;flex-direction:column;align-items:flex-end;gap:8px; }
 .btn-adm { background:var(--d3); border:1px solid rgba(255,255,255,.09); border-radius:7px; color:var(--muted); padding:7px 12px; font-size:9px; letter-spacing:.1em; text-transform:uppercase; cursor:pointer; font-family:inherit; transition:all .15s; }
 .btn-adm:hover { color:#fff; } .btn-adm.on { color:var(--gold); border-color:var(--gold); }
+.btn-adm-panel { background:var(--orange); border:none; border-radius:7px; color:#000; padding:8px 14px; font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; font-family:inherit; display:none; position:relative; }
+.btn-adm-panel .badge { position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;font-size:9px;font-weight:900;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center; }
+.admin-mode .btn-adm-panel { display:block; }
+/* Pending cards */
+.pend-card { background:var(--d3);border:1px solid rgba(243,156,18,.25);border-radius:10px;padding:14px;margin-bottom:10px; }
+.pend-table { font-size:13px;font-weight:900;color:#fff;margin-bottom:2px; }
+.pend-name { font-size:12px;color:var(--gold);margin-bottom:6px; }
+.pend-details { font-size:10px;color:rgba(240,232,216,.5);line-height:1.7;margin-bottom:10px; }
+.pend-actions { display:flex;gap:8px; }
+.btn-confirm { flex:1;background:var(--green);border:none;border-radius:7px;color:#000;font-size:11px;font-weight:800;padding:9px;cursor:pointer;font-family:inherit; }
+.btn-release { flex:1;background:rgba(231,76,60,.15);border:1px solid rgba(231,76,60,.3);border-radius:7px;color:var(--red);font-size:11px;font-weight:700;padding:9px;cursor:pointer;font-family:inherit; }
 
 /* LOADING */
 .loading-wrap { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
@@ -448,8 +462,8 @@ body { background:var(--dark); color:var(--text); font-family:'Segoe UI',system-
 <body>
 
 <script>
-const SUPABASE_URL     = 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL     = 'https://kjxwrukjhatuwztmyfwu.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_etCZ68cMpMG4z86PSD35MA_tu0lk09v';
 const ADMIN_PIN        = '1234';
 const WHISH_NUM        = '0096176917171';
 const WA_NUM           = '96176917171';
@@ -666,6 +680,17 @@ const WA_NUM           = '96176917171';
   </div>
 </div>
 
+<!-- ADMIN PANEL -->
+<div class="overlay" id="adminOverlay">
+  <div class="modal" style="max-width:480px;max-height:85vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeAdminPanel()">✕</button>
+    <div style="font-size:13px;font-weight:800;letter-spacing:.08em;color:var(--gold);margin-bottom:4px;text-transform:uppercase">Admin Panel</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:18px">Confirm payment received to close a table</div>
+    <div id="pendingList"></div>
+    <div id="noPending" style="display:none;text-align:center;padding:30px 0;font-size:12px;color:var(--muted)">No pending reservations</div>
+  </div>
+</div>
+
 <!-- PIN MODAL -->
 <div class="overlay" id="pinOverlay">
   <div class="modal pin-modal">
@@ -680,6 +705,9 @@ const WA_NUM           = '96176917171';
 </div>
 
 <div class="admin-bar">
+  <button class="btn-adm-panel" id="btnPanel" onclick="openAdminPanel()">
+    Requests <span class="badge" id="pendingBadge">0</span>
+  </button>
   <button class="btn-adm" id="btnAdm" onclick="togAdmin()">Admin</button>
 </div>
 <div class="toast" id="toast"></div>
@@ -808,14 +836,16 @@ function makeBtn(id, sec, num, x, y) {
   const s = seats[id] || { status:'available' };
   const price = TABLE_PRICE[id] || 40;
   const reserved = s.status === 'reserved';
+  const pending  = s.status === 'pending';
   const isLounge = id === '1-lounge';
   const btn = document.createElement('button');
   btn.id = `t-${id}`;
   btn.style.left = x + '%';
   btn.style.top  = y + '%';
 
+  const stClass = reserved ? 'rs' : pending ? 'pn' : 'av';
   if (isLounge) {
-    btn.className = `tbl lounge p50 ${reserved ? 'rs' : 'av'}`;
+    btn.className = `tbl lounge p50 ${stClass}`;
     btn.innerHTML = `
       <div class="lounge-icon">🌿</div>
       <div class="lounge-info">
@@ -826,14 +856,14 @@ function makeBtn(id, sec, num, x, y) {
       <button class="tbl-rel" onclick="releaseTable('${id}',event)">free</button>
     `;
   } else {
-    btn.className = `tbl p${price} ${reserved ? 'rs' : 'av'}`;
+    btn.className = `tbl p${price} ${stClass}`;
     btn.innerHTML = `
       <div class="tbl-num">${num}</div>
       <div class="tbl-price">$${price}</div>
       <button class="tbl-rel" onclick="releaseTable('${id}',event)">free</button>
     `;
   }
-  if (!reserved) btn.onclick = () => openModal(id, sec, num);
+  if (!reserved && !pending) btn.onclick = () => openModal(id, sec, num);
   return btn;
 }
 
@@ -851,11 +881,15 @@ function refreshCard(id) {
 }
 
 function updateStats() {
-  const total = LAYOUT.length;
+  const total    = LAYOUT.length;
   const reserved = Object.values(seats).filter(s => s.status === 'reserved').length;
+  const pending  = Object.values(seats).filter(s => s.status === 'pending').length;
   document.getElementById('totalN').textContent = total;
-  document.getElementById('availN').textContent = total - reserved;
+  document.getElementById('availN').textContent = total - reserved - pending;
   document.getElementById('resvN').textContent  = reserved;
+  // Update pending badge
+  const badge = document.getElementById('pendingBadge');
+  if (badge) { badge.textContent = pending; badge.style.display = pending ? 'flex' : 'none'; }
 }
 
 // ── MODAL
@@ -953,13 +987,18 @@ async function doReserve() {
   const btn = document.getElementById('btnResv');
   btn.disabled = true; btn.textContent = 'Reserving...';
 
+  const perP = pkgPrice + (alcOn ? 5 : 0);
+  const tot  = perP * guestCount;
+
   if (db) {
     const { error } = await db.from('event_seats').update({
-      status:'reserved', guest_name:name, guest_phone:phone, reserved_at:new Date().toISOString()
+      status:'pending', guest_name:name, guest_phone:phone,
+      guest_count:guestCount, dinner:dinnerOn, alcohol:alcOn,
+      total_usd:tot, reserved_at:new Date().toISOString()
     }).eq('id', selId).eq('status','available');
     if (error) { toast('Error — try again','e'); btn.disabled=false; btn.textContent='Reserve & Message on WhatsApp →'; return; }
   } else {
-    seats[selId] = { status:'reserved', guest_name:name, guest_phone:phone };
+    seats[selId] = { status:'pending', guest_name:name, guest_phone:phone, guest_count:guestCount, dinner:dinnerOn, alcohol:alcOn, total_usd:tot };
     refreshCard(selId);
     updateStats();
   }
@@ -1043,13 +1082,72 @@ async function releaseTable(id, e) {
   e.stopPropagation();
   if (!adminMode) return;
   if (db) {
-    await db.from('event_seats').update({ status:'available', guest_name:null, guest_phone:null, reserved_at:null }).eq('id',id);
+    await db.from('event_seats').update({ status:'available', guest_name:null, guest_phone:null, guest_count:null, dinner:null, alcohol:null, total_usd:null, reserved_at:null }).eq('id',id);
   } else {
-    seats[id] = { status:'available', guest_name:null, guest_phone:null };
-    refreshCard(id);
-    updateStats();
+    seats[id] = { status:'available' };
+    refreshCard(id); updateStats();
   }
   toast('Released','s');
+}
+
+async function confirmTable(id) {
+  if (db) {
+    await db.from('event_seats').update({ status:'reserved' }).eq('id', id);
+  } else {
+    seats[id].status = 'reserved';
+    refreshCard(id); updateStats();
+  }
+  renderAdminPanel();
+  toast('Confirmed — table closed ✓', 's');
+}
+
+async function rejectTable(id) {
+  if (db) {
+    await db.from('event_seats').update({ status:'available', guest_name:null, guest_phone:null, guest_count:null, dinner:null, alcohol:null, total_usd:null, reserved_at:null }).eq('id', id);
+  } else {
+    seats[id] = { status:'available' };
+    refreshCard(id); updateStats();
+  }
+  renderAdminPanel();
+  toast('Request rejected — table freed', '');
+}
+
+function openAdminPanel() {
+  renderAdminPanel();
+  document.getElementById('adminOverlay').classList.add('open');
+}
+function closeAdminPanel() { document.getElementById('adminOverlay').classList.remove('open'); }
+document.getElementById('adminOverlay').addEventListener('click', e => { if(e.target===e.currentTarget) closeAdminPanel(); });
+
+function renderAdminPanel() {
+  const pending = Object.entries(seats).filter(([,s]) => s.status === 'pending');
+  const list = document.getElementById('pendingList');
+  const none = document.getElementById('noPending');
+  list.innerHTML = '';
+  if (pending.length === 0) { none.style.display='block'; return; }
+  none.style.display = 'none';
+  pending.forEach(([id, s]) => {
+    const row = LAYOUT.find(r => r[0] === id);
+    const tLabel = id === '1-lounge' ? 'Private Lounge' : (row ? `Table ${row[1]}-${row[2]}` : id);
+    const secLabel = SEC_LABEL[row?.[1]] || '';
+    const div = document.createElement('div');
+    div.className = 'pend-card';
+    div.innerHTML = `
+      <div class="pend-table">${tLabel}</div>
+      <div class="pend-name">${s.guest_name || '—'}</div>
+      <div class="pend-details">
+        Phone: ${s.guest_phone || '—'}<br>
+        Section: ${secLabel}<br>
+        Guests: ${s.guest_count || 1} · Dinner: ${s.dinner ? 'Yes' : 'No'} · Alcohol: ${s.alcohol ? 'Yes' : 'No'}<br>
+        <strong style="color:var(--gold)">Total: $${s.total_usd || '—'}</strong>
+      </div>
+      <div class="pend-actions">
+        <button class="btn-confirm" onclick="confirmTable('${id}')">Payment Received — Confirm</button>
+        <button class="btn-release" onclick="rejectTable('${id}')">Reject</button>
+      </div>
+    `;
+    list.appendChild(div);
+  });
 }
 
 function togAdmin() {
