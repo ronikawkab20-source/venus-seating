@@ -967,26 +967,27 @@ async function doReserve() {
   btn.disabled = false; btn.textContent = 'Reserve & Message on WhatsApp →';
 
   const row = LAYOUT.find(r => r[0] === selId);
-  const tLabel = selId === '1-lounge' ? '🌿 Private Lounge' : (row ? `Table ${row[1]}-${row[2]}` : 'your table');
+  const tLabel = selId === '1-lounge' ? 'Private Lounge' : (row ? `Table ${row[1]}-${row[2]}` : 'your table');
   const secLabel = SEC_LABEL[row?.[1]] || '';
-  const dinnerLine = (() => { const pr = PRICE[selId]||[40,40]; return pr[0]!==pr[1] ? `\n🍽 Dinner: ${dinnerOn?'Yes':'No'}` : ''; })();
-  const alcLine = alcOn ? '\n🍺 Alcohol: Yes (+$5/person)' : '';
+  const pr = PRICE[selId]||[40,40];
+  const dinnerLine = pr[0]!==pr[1] ? `\nDinner: ${dinnerOn?'Yes':'No'}` : '';
+  const alcLine = alcOn ? '\nAlcohol: Yes (+$5/person)' : '';
   const perPerson = pkgPrice + (alcOn ? 5 : 0);
   const total = perPerson * guestCount;
 
   const msg = encodeURIComponent(
-`Hi! I just reserved ${tLabel} at Venus Resort — June 13 🎤
+`Venus Resort - June 13
+Reservation Request
 
-👤 Name: ${name}
-📞 Phone: ${phone}
-🪑 Table: ${tLabel} — ${secLabel}${dinnerLine}${alcLine}
-💲 Price: $${perPerson}/person
-👥 Guests: ${guestCount}
-💰 Total: $${total}
+Name: ${name}
+Phone: ${phone}
+Table: ${tLabel} - ${secLabel}${dinnerLine}${alcLine}
+Guests: ${guestCount}
+Price: $${perPerson}/person
+Total: $${total}
 
-💳 Sending payment now via Whish to ${WHISH_NUM}
-
-Please confirm my reservation. Thank you!`
+Sending payment via Whish to ${WHISH_NUM}
+Please confirm. Thank you!`
   );
 
   closeModal();
